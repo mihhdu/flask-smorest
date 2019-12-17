@@ -1,6 +1,7 @@
 """ETag feature"""
 
 from functools import wraps
+from copy import deepcopy
 
 import hashlib
 
@@ -10,7 +11,7 @@ from flask import request, current_app, json
 from .exceptions import (
     CheckEtagNotCalledError,
     PreconditionRequired, PreconditionFailed, NotModified)
-from .utils import get_appcontext
+from .utils import deepupdate, get_appcontext
 from .compat import MARSHMALLOW_VERSION_MAJOR
 
 
@@ -67,6 +68,16 @@ class EtagMixin:
             # Decorator: @etag
             view_func, etag_schema = etag_schema, None
 
+        # Document error responses
+        doc = {
+            'responses':
+            {
+                309: 'NotModified',
+                412: 'PreconditionFailed',
+                428: 'PreconditionRequired',
+            }
+        }
+
         def decorator(func):
 
             @wraps(func)
@@ -90,6 +101,11 @@ class EtagMixin:
                     self._set_etag_in_response(resp, etag_schema)
 
                 return resp
+
+            # Store error responses doc in wrapper function
+            # The deepcopy avoids modifying the wrapped function doc
+            wrapper._apidoc = deepupdate(
+                deepcopy(getattr(wrapper, '_apidoc', {})), doc)
 
             return wrapper
 
